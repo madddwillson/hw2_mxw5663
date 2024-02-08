@@ -4,8 +4,7 @@ author: "[Madeleine Willson]{style='background-color: yellow;'}"
 toc: true
 title-block-banner: true
 title-block-style: default
-format: html
-# format: pdf
+format: pdf
 editor: 
   markdown: 
     wrap: 72
@@ -105,7 +104,12 @@ Plot histograms of all the quantitative variables in a **single plot**
 
 ``` {r}
 # Insert your code here
+df_long <- pivot_longer(df, -sex, names_to = "variable", values_to = "value")
 
+ggplot(df_long, aes(x = value)) + 
+          geom_histogram() + 
+          facet_wrap(~variable, scales = "free") +
+          labs(x= "Value", y = "Frequency")
 ```
 
 ------------------------------------------------------------------------
@@ -117,13 +121,21 @@ of `diameter` for each `sex`. Are there any notable differences in the
 physical appearences of abalones based on your analysis here?
 
 ``` {r}
-... # Insert your code for boxplot here
+# Insert your code for boxplot here
+boxplot_length <- ggplot(df, aes(x = sex, y = length)) +
+  geom_boxplot() +
+  labs(x = "Sex", y = "Length") 
+boxplot_length
 ```
 
 ``` {r}
-... # Insert your code for violinplot here
+ # Insert your code for violinplot here
+violinplot_diameter <- ggplot(df, aes(x = sex, y = diameter)) +
+  geom_violin() +
+  labs(x = "Sex", y = "Diameter") 
+violinplot_diameter
 ```
-
+Female abalones have a longer length and a bigger diameter. 
 ------------------------------------------------------------------------
 
 ###### 1.5 (5 points)
@@ -134,15 +146,18 @@ each point based on the `shell_wight` value for each observation. Are
 there any notable anomalies in the dataset?
 
 ``` {r}
-... # Insert your code here
+ # Insert your code here
+plot <- ggplot(df, aes(x = length, y = diameter, color = sex, size = shell_weight)) + geom_point()
+plot
 ```
+The main anomaly is a I value at (.19,.039) with a smaller shell weight. The diameter is much bigger than standard for the length. There is another cluster of I points that are apart from the group, but they have smaller diameters than standard for their given length.
 
 ------------------------------------------------------------------------
 
 ###### 1.6 (5 points)
 
 For each `sex`, create separate scatter plots of `length` and
-`diameter`. For each plot, also add a **linear** trendline to illustrate
+`diameter`. For each plot, also add a **linear** trend line to illustrate
 the relationship between the variables. Use the `facet_wrap()` function
 in R for this, and ensure that the plots are vertically stacked **not**
 horizontally. You should end up with a plot that looks like this: [^2]
@@ -152,7 +167,12 @@ horizontally. You should end up with a plot that looks like this: [^2]
     when-format="html"}
 
 ``` {r}
-... # Insert your code here
+scatter_plots <- ggplot(df, aes(x = length, y = diameter, color = sex)) + 
+          geom_point() + 
+          geom_smooth(method = "lm", se = FALSE, color = "black") +
+          facet_wrap(~ sex, scales = "free", ncol = 1) +
+          labs(x= "Length", y = "Diameter")
+scatter_plots
 ```
 
 <br><br><br><br> <br><br><br><br> ---
@@ -175,7 +195,23 @@ for each group. Create a bar plot to visualize the mean values for each
 variable by `sex`.
 
 ``` {r}
-df %>% ... # Insert your code here
+filtered <- df %>% filter(length >= .5)
+
+# Group the  by sex and calculate the mean of each group's variables 
+mean_values <- filtered %>%
+  group_by(sex) %>%
+  summarize_all(mean)
+
+mean_values_long <- pivot_longer(mean_values, -sex, names_to = "variable", values_to = "mean_value")
+
+# Create a bar plot to visualize the mean values for each variable by sex
+bar_plot <- ggplot(mean_values_long, aes(x = variable, y = mean_value, fill = sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Variable", y = "Mean Value") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
+
+bar_plot
 ```
 
 ------------------------------------------------------------------------
@@ -201,7 +237,21 @@ Implement the following in a **single command**:
     `avg_weight` value.
 
 ``` {r}
-df %>% ... # Insert your code here
+df_plot <- df %>%
+  mutate(num_rings = case_when(
+    rings < 10 ~ "low",
+    rings > 20 ~ "high",
+    TRUE ~ "med"
+  )) %>%
+  group_by(num_rings, sex) %>%
+  summarize(avg_weight = mean(whole_weight + shucked_weight + viscera_weight + shell_weight)) %>%
+  ggplot(aes(x = num_rings, y = sex, fill = avg_weight)) +
+  geom_tile() +
+  labs(x = "Number of Rings", y = "Sex", fill = "Average Weight") +
+  scale_fill_gradient(low = "white", high = "red") 
+
+df_plot
+
 ```
 
 ------------------------------------------------------------------------
@@ -215,7 +265,12 @@ like this [^3]
 [^3]: Table for 2.3<br>
 
 ``` {r}
-df %>% ... # Insert your code here
+# Compute pairwise correlations rounded to 2 decimal points
+correlation_table <- df %>%
+  select_if(is.numeric) %>%
+  cor()
+
+round(correlation_table, 3)
 ```
 
 ------------------------------------------------------------------------
@@ -233,7 +288,19 @@ grid of plots.
 :::
 
 ``` {r}
-... # Insert your code here
+quantitative_vars <- df %>%
+  select_if(is.numeric) 
+
+# Create scatter plots for each quantitative variable 
+scatter_plots <- map2(quantitative_vars, names(quantitative_vars), function(var, name) {
+  ggplot(df, aes_string(x = "rings", y = name, color = "sex")) +
+    geom_point() +
+    labs(title = paste("Scatter plot of", name, "vs. Rings"))
+})
+
+# Arrange grid
+grid <- plot_grid(plotlist = scatter_plots, ncol = 3)
+grid
 ```
 
 <br><br><br><br> <br><br><br><br> ---
@@ -255,8 +322,11 @@ Perform a simple linear regression with `diameter` as the covariate and
 significance values.
 
 ``` {r}
-... # Insert your code here
+lm_model <- lm(height ~ diameter, data = df)
+lm_model
+summary(lm_model)
 ```
+The model coefficients are the intercept which is -.003803 and the slope which is .351376. This means that the model says, if diameter could be zero, the associated height would be -.003803. The p-value for the intercept was .0119 which means it is significant since it is below .05. Also, for every unit of increase in diameter, the height increases by .351376. The p-value for the slope was <2e-16 meaning that it was even more significant since it is well below .05. 
 
 ------------------------------------------------------------------------
 
@@ -268,7 +338,8 @@ this. Is the linear model an appropriate fit for this relationship?
 Explain.
 
 ``` {r}
-... # Insert your code here
+plot(df$diameter, df$height, main = "Height vs Diameter", xlab = "Diameter", ylab = "Height")
+abline(lm(height ~ diameter, data = df), col = "red")
 ```
 
 ------------------------------------------------------------------------
@@ -296,7 +367,14 @@ new_diameters <- c(
 )
 
 
-... # Insert your code here. 
+new_predictions <- predict(lm_model, newdata = data.frame(diameter = new_diameters))
+
+plot(df$diameter, df$height, main = "Height vs Diameter", xlab = "Diameter", ylab = "Height")
+abline(lm(height ~ diameter, data = df), col = "red")
+
+new_predictions <- predict(lm_model, newdata = data.frame(diameter = new_diameters))
+points(new_diameters, new_predictions, col = "violet")
+
 ```
 
 ::: {.hidden unless-format="pdf"}
